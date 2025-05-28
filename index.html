@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QR Code Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      transition: background-color 0.3s, color 0.3s;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+    }
+
+    body.light {
+      color: #222;
+    }
+
+    body.dark {
+      background: #121212;
+      color: #f4f4f4;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2xl;
+      padding: 2rem;
+      width: 90%;
+      max-width: 600px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(12px);
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .toggle-mode {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #333;
+      color: white;
+      transition: 0.3s ease;
+    }
+
+    body.light .toggle-mode {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    input[type="text"] {
+      padding: 0.8rem;
+      width: 100%;
+      max-width: 400px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .settings {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .settings select {
+      padding: 0.6rem;
+      border-radius: 10px;
+      border: none;
+      font-size: 0.95rem;
+      background: #ffffffee;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .buttons button {
+      padding: 0.8rem 2rem;
+      border: none;
+      border-radius: 16px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(45deg, #ff6ec4, #7873f5);
+      color: white;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      transition: transform 0.2s ease;
+    }
+
+    .buttons button:hover {
+      transform: translateY(-2px);
+    }
+
+    .qr-area {
+      margin-top: 1rem;
+      background: white;
+      border-radius: 16px;
+      padding: 1rem;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .history {
+      margin-top: 1.5rem;
+      max-height: 180px;
+      overflow-y: auto;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 1rem;
+      border-radius: 16px;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+
+    .history-item {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+    }
+
+    .history-item:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 500px) {
+      .buttons {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body class="light">
+  <button class="toggle-mode" onclick="toggleMode()">Switch to Dark Mode</button>
+  <div class="container">
+    <h1>QR Code Generator</h1>
+    <input type="text" id="qrText" placeholder="Enter text or URL" />
+    <div class="settings">
+      <select id="qrSize">
+        <option value="100">100x100</option>
+        <option value="200" selected>200x200</option>
+        <option value="300">300x300</option>
+        <option value="400">400x400</option>
+      </select>
+      <select id="qrFormat">
+        <option value="png" selected>PNG</option>
+        <option value="svg">SVG</option>
+      </select>
+      <select id="qrErrorCorrection">
+        <option value="L">L (Low)</option>
+        <option value="M" selected>M (Medium)</option>
+        <option value="Q">Q (Quartile)</option>
+        <option value="H">H (High)</option>
+      </select>
+    </div>
+    <div class="buttons">
+      <button onclick="generateQRCode()">Generate QR</button>
+      <button onclick="downloadQRCode()">Download</button>
+    </div>
+    <div class="qr-area" id="qrArea"></div>
+    <div class="history" id="history"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script>
+    let lastCanvas = null;
+    let lastSVG = null;
+    let currentFormat = 'png';
+
+    function generateQRCode() {
+      const qrText = document.getElementById('qrText').value;
+      const qrSize = parseInt(document.getElementById('qrSize').value);
+      const qrFormat = document.getElementById('qrFormat').value;
+      const errorCorrection = document.getElementById('qrErrorCorrection').value;
+      const qrArea = document.getElementById('qrArea');
+      qrArea.innerHTML = '';
+      currentFormat = qrFormat;
+
+      if (qrText.trim()) {
+        const options = {
+          width: qrSize,
+          errorCorrectionLevel: errorCorrection
+        };
+
+        if (qrFormat === 'png') {
+          QRCode.toCanvas(qrText, options, function (err, canvas) {
+            if (err) return console.error(err);
+            lastCanvas = canvas;
+            lastSVG = null;
+            qrArea.appendChild(canvas);
+            addToHistory(qrText);
+          });
+        } else if (qrFormat === 'svg') {
+          QRCode.toString(qrText, { type: 'svg', errorCorrectionLevel: errorCorrection }, function (err, svg) {
+            if (err) return console.error(err);
+            lastCanvas = null;
+            lastSVG = svg;
+            qrArea.innerHTML = svg;
+            addToHistory(qrText);
+          });
+        }
+      } else {
+        qrArea.innerHTML = '<p>Please enter text to generate QR code.</p>';
+      }
+    }
+
+    function downloadQRCode() {
+      if (currentFormat === 'png' && lastCanvas) {
+        const link = document.createElement('a');
+        link.download = 'qrcode.png';
+        link.href = lastCanvas.toDataURL();
+        link.click();
+      } else if (currentFormat === 'svg' && lastSVG) {
+        const blob = new Blob([lastSVG], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = 'qrcode.svg';
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    function toggleMode() {
+      const body = document.body;
+      const toggleBtn = document.querySelector('.toggle-mode');
+      body.classList.toggle('dark');
+      body.classList.toggle('light');
+      toggleBtn.textContent = body.classList.contains('dark') ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    }
+
+    function addToHistory(text) {
+      const history = document.getElementById('history');
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      item.textContent = text;
+      item.onclick = () => {
+        document.getElementById('qrText').value = text;
+        generateQRCode();
+      };
+      history.prepend(item);
+    }
+  </script>
+</body>
+</html>
